@@ -1,0 +1,23 @@
+{
+  "assetId": "speaker",
+  "language": "ru",
+  "durationMs": 14000,
+  "words": [
+    {"id":"w_1","text":"Привет,","startMs":500,"endMs":900},
+    {"id":"w_2","text":"друзья.","startMs":950,"endMs":1500},
+    {"id":"w_3","text":"Сегодня","startMs":3500,"endMs":4000},
+    {"id":"w_4","text":"расскажу","startMs":4050,"endMs":4600},
+    {"id":"w_5","text":"про","startMs":4650,"endMs":4850},
+    {"id":"w_6","text":"три","startMs":4900,"endMs":5200},
+    {"id":"w_7","text":"простых","startMs":5250,"endMs":5800},
+    {"id":"w_8","text":"шага","startMs":5850,"endMs":6300},
+    {"id":"w_9","text":"к","startMs":6350,"endMs":6450},
+    {"id":"w_10","text":"быстрому","startMs":6500,"endMs":7000},
+    {"id":"w_11","text":"монтажу.","startMs":7050,"endMs":7700},
+    {"id":"w_12","text":"Первый","startMs":9500,"endMs":10000},
+    {"id":"w_13","text":"шаг","startMs":10050,"endMs":10400},
+    {"id":"w_14","text":"загрузите","startMs":10450,"endMs":11000},
+    {"id":"w_15","text":"материалы.","startMs":11050,"endMs":11800},
+    {"id":"w_16","text":"Подписывайтесь!","startMs":12500,"endMs":13400}
+  ]
+}
