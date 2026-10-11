@@ -65,6 +65,25 @@ describe("план", () => {
   });
 });
 
+describe("вставки", () => {
+  const ins = (value: string) => ({ sceneIndex: 1, spec: { kind: "big_number" as const, data: { value, label: "Взнос" } }, factRefs: ["w_5"] });
+  const long: Transcript = { ...transcript, durationMs: 30000, words: [mk(1, "Один", 500, 2500), mk(2, "два", 5000, 7000), mk(3, "три", 10000, 12000), mk(4, "четыре", 15000, 17000), mk(5, "двадцать", 20000, 22000)] };
+  const ctx = { transcript: long, style, assetDurationsMs: { a1: 30000 } };
+  it("число из утверждённого текста проходит, выдуманное — нет", () => {
+    const ok = planTimeline({ transcript: long, style, sceneSeconds: [1.5, 3], inserts: [ins("20%")] });
+    expect(ok.visualScenes[1].insert?.spec.kind).toBe("big_number");
+    expect(validatePlan(ok, { ...ctx, approvedTexts: ["взнос 20%"] })).toEqual([]);
+    expect(validatePlan(ok, ctx).some((i) => i.code === "fact_number")).toBe(true);
+    const bad = planTimeline({ transcript: long, style, sceneSeconds: [1.5, 3], inserts: [ins("50%")] });
+    expect(validatePlan(bad, { ...ctx, approvedTexts: ["взнос 20%"] }).some((i) => i.code === "fact_number")).toBe(true);
+  });
+  it("вставка вне graphic_full отклоняется", () => {
+    const p = planTimeline({ transcript: long, style, sceneSeconds: [1.5, 3], inserts: [ins("20%")] });
+    p.visualScenes[1].composition = "speaker_full";
+    expect(validatePlan(p, { ...ctx, approvedTexts: ["20%"] }).some((i) => i.code === "insert")).toBe(true);
+  });
+});
+
 describe("субтитры", () => {
   it("не длиннее 2 строк по 32 символа, слова не режутся", () => {
     const { map } = buildSourceMap(buildAudioSegments(transcript, { mode: "normal" }), 30);

@@ -1,9 +1,12 @@
-import { AudioSegment, Composition, Scene, Style, TimelinePlan, Transcript, FPS } from "@aa/schema";
+import { AudioSegment, Composition, InsertParams, InsertSpec, Scene, Style, TimelinePlan, Transcript, FPS, insertTexts } from "@aa/schema";
 import { buildAudioSegments, buildSourceMap } from "./speech";
 import { buildCaptions } from "./captions";
 
 export interface BrollAsset { assetId: string; durationMs: number }
+/** Запрос вставки от монтажного ИИ: в какую по счёту сцену и с каким содержанием. */
+export interface InsertRequest { sceneIndex: number; spec: InsertSpec; params?: InsertParams; factRefs?: string[] }
 export interface PlanInput {
+  inserts?: InsertRequest[];
   transcript: Transcript;
   style: Style;
   broll?: BrollAsset[];
@@ -68,11 +71,18 @@ export function planTimeline(input: PlanInput): TimelinePlan {
       const ids = block.flatMap((g) => g.wordIds).slice(0, 5);
       overlay = { text: ids.map((id) => wordsById.get(id)!.text).join(" "), factRefs: ids };
     }
+    const req = input.inserts?.find((r) => r.sceneIndex === i);
+    let insert: Scene["insert"];
+    if (req) {
+      comp = "graphic_full"; visual = undefined;
+      overlay = { text: insertTexts(req!.spec)[0], factRefs: req!.factRefs ?? [] };
+      insert = { spec: req!.spec, params: req!.params ?? { intensity: "calm" }, factRefs: req!.factRefs ?? [] };
+    }
     if (dur > maxS * fps) warnings.push("Сцена длиннее целевого диапазона");
     scenes.push({
       sceneId: `scene_${String(i + 1).padStart(2, "0")}`, startFrame: cursor, durationFrames: dur,
-      composition: comp, templateId: TEMPLATE[comp], speechSegmentIds: block.map((g) => g.id),
-      visual, overlay, captionWordIds: block.flatMap((g) => g.wordIds), locks: [], warnings,
+      composition: comp, templateId: insert ? `insert_${insert.spec.kind}_v1` : TEMPLATE[comp], speechSegmentIds: block.map((g) => g.id),
+      visual, overlay, insert, captionWordIds: block.flatMap((g) => g.wordIds), locks: [], warnings,
     });
     cursor += dur;
   });

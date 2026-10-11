@@ -7,6 +7,8 @@ export interface VideoProps {
   style: Style;
   /** assetId -> имя файла в public-каталоге */
   files: Record<string, string>;
+  /** sceneId -> файл готовой вставки HyperFrames; нет записи — показывается основной кадр */
+  inserts?: Record<string, string>;
   [k: string]: unknown;
 }
 
@@ -14,7 +16,7 @@ const ms2f = (ms: number, fps: number) => Math.round((ms * fps) / 1000);
 // Безопасная область важного текста для 1080×1920 (ТЗ п. 12)
 const SAFE = { x: 90, y: 180, w: 810, h: 1350 };
 
-export const Video: React.FC<VideoProps> = ({ plan, style, files }) => {
+export const Video: React.FC<VideoProps> = ({ plan, style, files, inserts }) => {
   const { fps } = plan;
   const font = style.brand.fontFamily;
   return (
@@ -30,13 +32,13 @@ export const Video: React.FC<VideoProps> = ({ plan, style, files }) => {
       })}
       {plan.visualScenes.map((s) => (
         <Sequence key={s.sceneId} from={s.startFrame} durationInFrames={s.durationFrames}>
-          <SceneLayer scene={s} files={files} style={style} fps={fps} />
+          <SceneLayer scene={s} files={files} style={style} fps={fps} insertFile={inserts?.[s.sceneId]} />
         </Sequence>
       ))}
       {plan.captions.map((c, i) => (
         <Sequence key={i} from={c.startFrame} durationInFrames={c.endFrame - c.startFrame}>
-          <div style={{ position: "absolute", left: SAFE.x, width: SAFE.w, top: 1380, textAlign: "center" }}>
-            <span style={{ background: "rgba(0,0,0,.65)", color: style.brand.text, fontSize: 56, fontWeight: 700, lineHeight: 1.3, padding: "6px 18px", borderRadius: 12, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
+          <div style={{ position: "absolute", left: 90, width: 900, top: 1380, textAlign: "center" }}>
+            <span style={{ background: "rgba(0,0,0,.65)", color: style.brand.text, fontSize: Math.floor(900 / (style.captions.maxCharsPerLine * 0.68)), fontWeight: 700, lineHeight: 1.3, padding: "6px 18px", borderRadius: 12, boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" }}>
               {c.lines.map((l, j) => (<React.Fragment key={j}>{j > 0 && <br />}{l}</React.Fragment>))}
             </span>
           </div>
@@ -46,7 +48,11 @@ export const Video: React.FC<VideoProps> = ({ plan, style, files }) => {
   );
 };
 
-const SceneLayer: React.FC<{ scene: Scene; files: Record<string, string>; style: Style; fps: number }> = ({ scene, files, style, fps }) => {
+const SceneLayer: React.FC<{ scene: Scene; files: Record<string, string>; style: Style; fps: number; insertFile?: string }> = ({ scene, files, style, fps, insertFile }) => {
+  // Вставка HyperFrames: полноэкранный немой MP4, речь основного видео продолжается под ним
+  if (scene.insert) {
+    return insertFile ? <OffthreadVideo muted src={staticFile(insertFile)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null;
+  }
   if (scene.composition === "broll_full" && scene.visual) {
     return <OffthreadVideo muted src={staticFile(files[scene.visual.assetId])} startFrom={ms2f(scene.visual.sourceInMs, fps)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
   }

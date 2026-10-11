@@ -1,4 +1,4 @@
-import { Style, TimelinePlan, TimelinePlanSchema, Transcript } from "@aa/schema";
+import { Style, TimelinePlan, TimelinePlanSchema, Transcript, insertTexts } from "@aa/schema";
 import { MIN_SCENE_FRAMES } from "./planner";
 
 export interface ValidationContext {
@@ -7,6 +7,8 @@ export interface ValidationContext {
   /** Длительности известных ассетов в мс. */
   assetDurationsMs: Record<string, number>;
   requiredPhrases?: string[];
+  /** Утверждённые пользователем тексты и цифры (задание, тезисы): единственный источник фактов для вставок. */
+  approvedTexts?: string[];
 }
 export interface Issue { code: string; message: string; sceneId?: string }
 
@@ -56,6 +58,16 @@ export function validatePlan(raw: unknown, ctx: ValidationContext): Issue[] {
   if (sceneSegs.length !== segIds.size || sceneSegs.some((id) => !segIds.has(id))) add("speech", "Сцены не покрывают речь один раз");
   for (const s of p.visualScenes)
     for (const f of s.overlay?.factRefs ?? []) if (!wordIds.has(f)) add("fact", `Текст графики ссылается на несуществующую фразу ${f}`, s.sceneId);
+
+  // вставки: только графическая композиция; числа берутся из речи или утверждённых текстов
+  for (const sc of p.visualScenes) {
+    if (!sc.insert) continue;
+    if (sc.composition !== "graphic_full") add("insert", "Вставка допустима только в сцене graphic_full", sc.sceneId);
+    const source = [...sc.insert.factRefs.map((id) => ctx.transcript.words.find((w) => w.id === id)?.text ?? ""), ...(ctx.approvedTexts ?? [])].join(" ");
+    for (const f of sc.insert.factRefs) if (!wordIds.has(f)) add("fact", `Вставка ссылается на несуществующее слово ${f}`, sc.sceneId);
+    for (const n of insertTexts(sc.insert.spec).join(" ").match(/\d+(?:[.,]\d+)?/g) ?? [])
+      if (!source.includes(n)) add("fact_number", `Число «${n}» во вставке не найдено в речи или утверждённом задании`, sc.sceneId);
+  }
 
   // обязательные тезисы
   const spoken = ctx.transcript.words.filter((w) => usedWords.has(w.id)).map((w) => w.text.toLowerCase()).join(" ");

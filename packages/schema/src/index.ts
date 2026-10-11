@@ -45,6 +45,36 @@ export type SourceMapEntry = z.infer<typeof SourceMapEntrySchema>;
 export const CompositionSchema = z.enum(["speaker_full", "speaker_graphic", "graphic_full", "broll_full"]);
 export type Composition = z.infer<typeof CompositionSchema>;
 
+// ---- Анимированные вставки (HyperFrames) ----
+const short = (n: number) => z.string().trim().min(1).max(n);
+export const InsertSpecSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("big_number"), data: z.object({ value: short(16), label: short(60), caption: short(80).optional() }) }),
+  z.object({ kind: z.literal("list"), data: z.object({ title: short(60), items: z.array(short(48)).min(2).max(4) }) }),
+  z.object({
+    kind: z.literal("comparison"),
+    data: z.object({ left: z.object({ title: short(28), value: short(24).optional() }), right: z.object({ title: short(28), value: short(24).optional() }) }),
+  }),
+  z.object({ kind: z.literal("title"), data: z.object({ text: short(70), kicker: short(40).optional() }) }),
+  z.object({ kind: z.literal("steps"), data: z.object({ steps: z.array(short(30)).length(3) }) }),
+]);
+export type InsertSpec = z.infer<typeof InsertSpecSchema>;
+export type InsertKind = InsertSpec["kind"];
+export const INSERT_KINDS: InsertKind[] = ["big_number", "list", "comparison", "title", "steps"];
+
+export const InsertParamsSchema = z.object({ intensity: z.enum(["calm", "dynamic"]).default("calm") });
+export type InsertParams = z.infer<typeof InsertParamsSchema>;
+
+/** Весь видимый текст вставки — для проверки фактов и запасного отображения. */
+export function insertTexts(spec: InsertSpec): string[] {
+  switch (spec.kind) {
+    case "big_number": return [spec.data.value, spec.data.label, ...(spec.data.caption ? [spec.data.caption] : [])];
+    case "list": return [spec.data.title, ...spec.data.items];
+    case "comparison": return [spec.data.left.title, spec.data.left.value, spec.data.right.title, spec.data.right.value].filter((x): x is string => !!x);
+    case "title": return [spec.data.text, ...(spec.data.kicker ? [spec.data.kicker] : [])];
+    case "steps": return spec.data.steps;
+  }
+}
+
 export const SceneSchema = z.object({
   sceneId: z.string(),
   startFrame: z.number().int().nonnegative(),
@@ -54,6 +84,8 @@ export const SceneSchema = z.object({
   speechSegmentIds: z.array(z.string()),
   visual: z.object({ assetId: z.string(), sourceInMs: z.number().int().nonnegative(), sourceOutMs: z.number().int().positive() }).optional(),
   overlay: z.object({ text: z.string(), factRefs: z.array(z.string()) }).optional(),
+  /** Анимированная вставка: рендерится HyperFrames в отдельный MP4, Remotion только размещает её. */
+  insert: z.object({ spec: InsertSpecSchema, params: InsertParamsSchema.default({ intensity: "calm" }), factRefs: z.array(z.string()).default([]) }).optional(),
   captionWordIds: z.array(z.string()).default([]),
   locks: z.array(z.enum(["speech", "visual", "graphic", "sound"])).default([]),
   warnings: z.array(z.string()).default([]),
